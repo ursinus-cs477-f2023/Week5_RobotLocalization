@@ -156,7 +156,7 @@ class Environment(object):
                 if res['t'] < t:
                     t = res['t']
             if np.isfinite(t):
-                scan[i] = t*(1+alpha*np.random.randn())
+                scan[i] = max(0, t*(1+alpha*np.random.randn()))
         return scan
 
     def plot_range_scan(self, x, scan, max_range=None):
