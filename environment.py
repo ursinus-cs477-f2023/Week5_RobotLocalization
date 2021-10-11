@@ -96,13 +96,18 @@ class Environment(object):
             and blocked cells are black
         """
         img = skimage.io.imread(path)
-        img = np.sum(img, axis=2)
+        if len(img.shape) > 2:
+            img = np.sum(img, axis=2)
         self.img = img
-        self.contours = find_contours(img, 0.5)
+        self.contours = [np.fliplr(x) for x in find_contours(img, 0.5)]
         self.setup_positions()
     
     def setup_positions(self):
-        y, x = np.meshgrid(np.arange(self.img.shape[0]), np.arange(self.img.shape[1]))
+        """
+        A helper method for the constructor which sets up the open cells in
+        the graph into a list of positions and neighbors
+        """
+        x, y = np.meshgrid(np.arange(self.img.shape[1]), np.arange(self.img.shape[0]))
         x = x[self.img > 0]
         y = y[self.img > 0]
         self.X = np.array([x, y]).T
@@ -120,10 +125,20 @@ class Environment(object):
         self.neighbors = neighbors
 
     
-    def plot(self):
-        plt.imshow(self.img.T, cmap='gray')
-        for X in self.contours:
-            plt.plot(X[:, 0], X[:, 1])
+    def plot(self, show_contours=False):
+        """
+        Plot the occupancy grid of the map with the extracted
+        contours on top of it
+
+        Parameters
+        ----------
+        show_contours: boolean
+            If true, plot contours superimposed
+        """
+        plt.imshow(self.img, cmap='gray')
+        if show_contours:
+            for X in self.contours:
+                plt.plot(X[:, 0], X[:, 1])
         plt.gca().invert_yaxis()
 
 
@@ -158,10 +173,21 @@ class Environment(object):
             if np.isfinite(t):
                 scan[i] = max(0, t*(1+alpha*np.random.randn()))
         return scan
+    
+    def get_state_scans(self, res):
+        """
+        Compute perfect state scans for all states to use as a model
+
+        Parameters
+        ----------
+        res: int
+            Resolution of each scan
+        """
+        return [self.get_range_scan(self.X[i], res, alpha=0) for i in range(self.X.shape[0])]
 
     def plot_range_scan(self, x, scan, max_range=None):
         """
-        Plot a range scan
+        Plot a range scan alongside a ground truth position on the map
 
         Parameters
         ----------
@@ -188,6 +214,35 @@ class Environment(object):
             plt.xlim([-max_range, max_range])
             plt.ylim([-max_range, max_range])
         plt.title("Range Scan")
+    
+    def plot_probabilities(self, est, p=1, show_max=True):
+        """
+        Plot a set of probabilities
+
+        Parameters
+        ----------
+        est: ndarray(N)
+            (Log) Probabilities estimates of all points
+        p: float
+            Polynomial degree for compressing color range
+        show_max: boolean
+            Whether to show the location of the maximum probability
+        """
+        I = np.zeros(self.img.shape)
+        idx = np.argmax(est)
+        if np.min(est) < 0 or np.max(est) > 1:
+            # Must be log probabilities or unnormalized probabilities, 
+            # so bring into the range [0, 1]
+            est = est - np.min(est)
+            est = est/np.max(est)
+        est = est**p
+        I[self.X[:, 1], self.X[:, 0]] += est+0.2
+        res = []
+        res.append(plt.imshow(I, cmap='magma'))
+        plt.clim(0, 1.2) # Consistent coloring with 0.2 offset so all cells are visible
+        if show_max:
+            res.append(plt.scatter([self.X[idx, 0]], [self.X[idx, 1]], marker='X', c='C2'))
+        return res
         
     
     def simulate_trajectory(self, xs):
