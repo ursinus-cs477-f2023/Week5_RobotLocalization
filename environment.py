@@ -239,6 +239,7 @@ class Environment(object):
         I[self.X[:, 1], self.X[:, 0]] += est+0.2
         res = []
         res.append(plt.imshow(I, cmap='magma'))
+        plt.gca().invert_yaxis()
         plt.clim(0, 1.2) # Consistent coloring with 0.2 offset so all cells are visible
         if show_max:
             res.append(plt.scatter([self.X[idx, 0]], [self.X[idx, 1]], marker='X', c='C2'))
