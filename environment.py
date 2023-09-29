@@ -77,6 +77,29 @@ def ray_intersect_curve(p0, v, X):
     return {'t':tmin, 'p':p}
 
 
+def get_measurement_prob(r, x, alpha, gamma=0.1, use_log=False):
+    """
+    r: ndarray(N)
+        Ground truth scan
+    x: ndarray(N)
+        Measured scan
+    alpha: float
+        Disparity
+    gamma: float
+        Number to prevent divide by 0 for ranges that are too close or
+        noise that is too small
+    use_log: bool
+        If true, use log probability
+    """
+    prod = alpha*r + gamma
+    N = len(r)
+    res = -np.sum(np.log(np.sqrt(2*np.pi)*prod)) 
+    res -= np.sum((r-x)**2 / (2*(prod**2)))
+    if not use_log:
+        res = np.exp(res)
+    return res
+
+
 class Environment(object):
     """
     Attributes
